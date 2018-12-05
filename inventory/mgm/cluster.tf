@@ -5,7 +5,7 @@ cluster_name = "mgm"
 public_key_path = "~/.ssh/devosp.pub"
 
 # image to use for bastion, masters, standalone etcd instances, and nodes
-image = "Container-Linux-stable-work"
+image = "Container-Linux-stable"
 # user on the node (ex. core on Container Linux, ubuntu on Ubuntu, etc.)
 ssh_user = "core"
 
