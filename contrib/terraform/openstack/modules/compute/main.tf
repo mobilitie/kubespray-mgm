@@ -61,8 +61,30 @@ resource "openstack_networking_secgroup_rule_v2" "worker" {
   security_group_id = "${openstack_networking_secgroup_v2.worker.id}"
 }
 
+
+
+# PORTS WITH FIXED IPS from subnet of sriov_id
+
+resource "openstack_networking_port_v2" "ports-bastion" {
+  count          = "${var.number_of_bastions}"
+  name           ="${var.cluster_name}-ports-bastion-${count.index+1}"
+  network_id     = "${var.sriov_id}"
+  admin_state_up = "true"
+#  security_group_ids = [ "${openstack_networking_secgroup_v2.k8s.id}" , "${openstack_networking_secgroup_v2.worker.id}" ]
+#  security_group_id = "${openstack_networking_secgroup_v2.k8s.id}"
+  fixed_ip {
+    subnet_id = "${var.sriov_subnet_id}"
+  }
+  value_specs {
+    "binding:vnic_type" = "direct"
+  }
+# SHOULD ATTACH SECURITY GROUPS HERE IN FUTURE
+}
+
+
+
 resource "openstack_compute_instance_v2" "bastion" {
-  name       = "${var.cluster_name}-bastion-${count.index+1}"
+  name       = "${var.cluster_name}-ports-bastion-${count.index+1}"
   count      = "${var.number_of_bastions}"
   image_name = "${var.image}"
   flavor_id  = "${var.flavor_bastion}"
@@ -70,6 +92,10 @@ resource "openstack_compute_instance_v2" "bastion" {
 
   network {
     name = "${var.network_name}"
+  }
+#EDIT HERE
+  network {
+    port = "${element(openstack_networking_port_v2.ports-bastion.*.id, count.index+1)}"
   }
 
   security_groups = ["${openstack_networking_secgroup_v2.k8s.name}",
@@ -80,7 +106,7 @@ resource "openstack_compute_instance_v2" "bastion" {
   metadata = {
     ssh_user         = "${var.ssh_user}"
     kubespray_groups = "bastion"
-    depends_on       = "${var.network_id}"
+    depends_on       = "${var.sriov_subnet_id}"
   }
 
   provisioner "local-exec" {
@@ -88,6 +114,28 @@ resource "openstack_compute_instance_v2" "bastion" {
   }
 
 }
+
+
+
+# PORTS WITH FIXED IPS from subnet of sriov_id
+
+resource "openstack_networking_port_v2" "ports-k8s_master" {
+  count          = "${var.number_of_k8s_masters}"
+  name           ="${var.cluster_name}-ports-k8s_master-${count.index+1}"
+  network_id     = "${var.sriov_id}"
+  admin_state_up = "true"
+#  security_group_ids = [ "${openstack_networking_secgroup_v2.k8s.id}" , "${openstack_networking_secgroup_v2.worker.id}" ]
+#  security_group_id = "${openstack_networking_secgroup_v2.k8s.id}"
+  fixed_ip {
+    subnet_id = "${var.sriov_subnet_id}"
+  }
+  value_specs {
+    "binding:vnic_type" = "direct"
+  }
+# SHOULD ATTACH SECURITY GROUPS HERE IN FUTURE
+}
+
+
 
 resource "openstack_compute_instance_v2" "k8s_master" {
   name       = "${var.cluster_name}-k8s-master-${count.index+1}"
@@ -101,6 +149,11 @@ resource "openstack_compute_instance_v2" "k8s_master" {
     name = "${var.network_name}"
   }
 
+#EDIT HERE
+  network {
+    port = "${element(openstack_networking_port_v2.ports-k8s_master.*.id, count.index+1)}"
+  }
+
   security_groups = ["${openstack_networking_secgroup_v2.k8s_master.name}",
     "${openstack_networking_secgroup_v2.bastion.name}",
     "${openstack_networking_secgroup_v2.k8s.name}",
@@ -110,7 +163,7 @@ resource "openstack_compute_instance_v2" "k8s_master" {
   metadata = {
     ssh_user         = "${var.ssh_user}"
     kubespray_groups = "etcd,kube-master,${var.supplementary_master_groups},k8s-cluster,vault"
-    depends_on       = "${var.network_id}"
+    depends_on       = "${var.sriov_subnet_id}"
   }
 
   provisioner "local-exec" {
@@ -118,6 +171,27 @@ resource "openstack_compute_instance_v2" "k8s_master" {
   }
 
 }
+
+
+
+# PORTS WITH FIXED IPS from subnet of sriov_id
+
+resource "openstack_networking_port_v2" "ports-k8s_master_no_etcd" {
+  count          = "${var.number_of_k8s_masters_no_etcd}"
+  name           ="${var.cluster_name}-ports-k8s_master_no_etcd-${count.index+1}"
+  network_id     = "${var.sriov_id}"
+  admin_state_up = "true"
+#  security_group_ids = [ "${openstack_networking_secgroup_v2.k8s.id}" , "${openstack_networking_secgroup_v2.worker.id}" ]
+#  security_group_id = "${openstack_networking_secgroup_v2.k8s.id}"
+  fixed_ip {
+    subnet_id = "${var.sriov_subnet_id}"
+  }
+  value_specs {
+    "binding:vnic_type" = "direct"
+  }
+# SHOULD ATTACH SECURITY GROUPS HERE IN FUTURE
+}
+
 
 resource "openstack_compute_instance_v2" "k8s_master_no_etcd" {
   name       = "${var.cluster_name}-k8s-master-ne-${count.index+1}"
@@ -131,6 +205,11 @@ resource "openstack_compute_instance_v2" "k8s_master_no_etcd" {
     name = "${var.network_name}"
   }
 
+#EDIT HERE
+  network {
+    port = "${element(openstack_networking_port_v2.ports-k8s_master_no_etcd.*.id, count.index+1)}"
+  }
+
   security_groups = ["${openstack_networking_secgroup_v2.k8s_master.name}",
     "${openstack_networking_secgroup_v2.bastion.name}",
     "${openstack_networking_secgroup_v2.k8s.name}",
@@ -139,7 +218,7 @@ resource "openstack_compute_instance_v2" "k8s_master_no_etcd" {
   metadata = {
     ssh_user         = "${var.ssh_user}"
     kubespray_groups = "kube-master,${var.supplementary_master_groups},k8s-cluster,vault"
-    depends_on       = "${var.network_id}"
+    depends_on       = "${var.sriov_subnet_id}"
   }
 
   provisioner "local-exec" {
@@ -147,6 +226,26 @@ resource "openstack_compute_instance_v2" "k8s_master_no_etcd" {
   }
 
 }
+
+
+# PORTS WITH FIXED IPS from subnet of sriov_id
+
+resource "openstack_networking_port_v2" "ports-etcd" {
+  count          = "${var.number_of_etcd}"
+  name           ="${var.cluster_name}-ports-etcd-${count.index+1}"
+  network_id     = "${var.sriov_id}"
+  admin_state_up = "true"
+#  security_group_ids = [ "${openstack_networking_secgroup_v2.k8s.id}" , "${openstack_networking_secgroup_v2.worker.id}" ]
+#  security_group_id = "${openstack_networking_secgroup_v2.k8s.id}"
+  fixed_ip {
+    subnet_id = "${var.sriov_subnet_id}"
+  }
+  value_specs {
+    "binding:vnic_type" = "direct"
+  }
+# SHOULD ATTACH SECURITY GROUPS HERE IN FUTURE
+}
+
 
 resource "openstack_compute_instance_v2" "etcd" {
   name       = "${var.cluster_name}-etcd-${count.index+1}"
@@ -159,16 +258,40 @@ resource "openstack_compute_instance_v2" "etcd" {
   network {
     name = "${var.network_name}"
   }
+#EDIT HERE
+  network {
+    port = "${element(openstack_networking_port_v2.ports-etcd.*.id, count.index+1)}"
+  }
 
   security_groups = ["${openstack_networking_secgroup_v2.k8s.name}"]
 
   metadata = {
     ssh_user         = "${var.ssh_user}"
     kubespray_groups = "etcd,vault,no-floating"
-    depends_on       = "${var.network_id}"
+    depends_on       = "${var.sriov_subnet_id}"
   }
 
 }
+
+
+# PORTS WITH FIXED IPS from subnet of sriov_id
+
+resource "openstack_networking_port_v2" "ports-k8s_master_no_floating_ip" {
+  count          = "${var.number_of_k8s_masters_no_floating_ip}"
+  name           ="${var.cluster_name}-ports-k8s_master_no_floating_ip-${count.index+1}"
+  network_id     = "${var.sriov_id}"
+  admin_state_up = "true"
+#  security_group_ids = [ "${openstack_networking_secgroup_v2.k8s.id}" , "${openstack_networking_secgroup_v2.worker.id}" ]
+#  security_group_id = "${openstack_networking_secgroup_v2.k8s.id}"
+  fixed_ip {
+    subnet_id = "${var.sriov_subnet_id}"
+  }
+  value_specs {
+    "binding:vnic_type" = "direct"
+  }
+# SHOULD ATTACH SECURITY GROUPS HERE IN FUTURE
+}
+
 
 resource "openstack_compute_instance_v2" "k8s_master_no_floating_ip" {
   name       = "${var.cluster_name}-k8s-master-nf-${count.index+1}"
@@ -182,6 +305,11 @@ resource "openstack_compute_instance_v2" "k8s_master_no_floating_ip" {
     name = "${var.network_name}"
   }
 
+#EDIT HERE
+  network {
+    port = "${element(openstack_networking_port_v2.ports-k8s_master_no_floating_ip.*.id, count.index+1)}"
+  }
+
   security_groups = ["${openstack_networking_secgroup_v2.k8s_master.name}",
     "${openstack_networking_secgroup_v2.k8s.name}",
     "default",
@@ -190,10 +318,29 @@ resource "openstack_compute_instance_v2" "k8s_master_no_floating_ip" {
   metadata = {
     ssh_user         = "${var.ssh_user}"
     kubespray_groups = "etcd,kube-master,${var.supplementary_master_groups},k8s-cluster,vault,no-floating"
-    depends_on       = "${var.network_id}"
+    depends_on       = "${var.sriov_subnet_id}"
   }
 
 }
+
+# PORTS WITH FIXED IPS from subnet of sriov_id
+
+resource "openstack_networking_port_v2" "ports-k8s_master_no_floating_ip_no_etcd" {
+  count          = "${var.number_of_k8s_masters_no_floating_ip_no_etcd}"
+  name           ="${var.cluster_name}-ports-k8s_master_no_floating_ip_no_etcd-${count.index+1}"
+  network_id     = "${var.sriov_id}"
+  admin_state_up = "true"
+#  security_group_ids = [ "${openstack_networking_secgroup_v2.k8s.id}" , "${openstack_networking_secgroup_v2.worker.id}" ]
+#  security_group_id = "${openstack_networking_secgroup_v2.k8s.id}"
+  fixed_ip {
+    subnet_id = "${var.sriov_subnet_id}"
+  }
+  value_specs {
+    "binding:vnic_type" = "direct"
+  }
+# SHOULD ATTACH SECURITY GROUPS HERE IN FUTURE
+}
+
 
 resource "openstack_compute_instance_v2" "k8s_master_no_floating_ip_no_etcd" {
   name       = "${var.cluster_name}-k8s-master-ne-nf-${count.index+1}"
@@ -207,6 +354,11 @@ resource "openstack_compute_instance_v2" "k8s_master_no_floating_ip_no_etcd" {
     name = "${var.network_name}"
   }
 
+#EDIT HERE
+  network {
+    port = "${element(openstack_networking_port_v2.ports-k8s_master_no_floating_ip_no_etcd.*.id, count.index+1)}"
+  }
+
   security_groups = ["${openstack_networking_secgroup_v2.k8s_master.name}",
     "${openstack_networking_secgroup_v2.k8s.name}",
   ]
@@ -214,10 +366,29 @@ resource "openstack_compute_instance_v2" "k8s_master_no_floating_ip_no_etcd" {
   metadata = {
     ssh_user         = "${var.ssh_user}"
     kubespray_groups = "kube-master,${var.supplementary_master_groups},k8s-cluster,vault,no-floating"
-    depends_on       = "${var.network_id}"
+    depends_on       = "${var.sriov_subnet_id}"
   }
 
 }
+
+# PORTS WITH FIXED IPS from subnet of sriov_id
+
+resource "openstack_networking_port_v2" "ports-k8s_node" {
+  count          = "${var.number_of_k8s_nodes}"
+  name           ="${var.cluster_name}-ports-k8s_node-${count.index+1}"
+  network_id     = "${var.sriov_id}"
+  admin_state_up = "true"
+#  security_group_ids = [ "${openstack_networking_secgroup_v2.k8s.id}" , "${openstack_networking_secgroup_v2.worker.id}" ]
+#  security_group_id = "${openstack_networking_secgroup_v2.k8s.id}"
+  fixed_ip {
+    subnet_id = "${var.sriov_subnet_id}"
+  }
+  value_specs {
+    "binding:vnic_type" = "direct"
+  }
+# SHOULD ATTACH SECURITY GROUPS HERE IN FUTURE
+}
+
 
 resource "openstack_compute_instance_v2" "k8s_node" {
   name       = "${var.cluster_name}-k8s-node-${count.index+1}"
@@ -231,6 +402,11 @@ resource "openstack_compute_instance_v2" "k8s_node" {
     name = "${var.network_name}"
   }
 
+#EDIT HERE
+  network {
+    port = "${element(openstack_networking_port_v2.ports-k8s_node.*.id, count.index+1)}"
+  }
+
   security_groups = ["${openstack_networking_secgroup_v2.k8s.name}",
     "${openstack_networking_secgroup_v2.bastion.name}",
     "${openstack_networking_secgroup_v2.worker.name}",
@@ -240,13 +416,32 @@ resource "openstack_compute_instance_v2" "k8s_node" {
   metadata = {
     ssh_user         = "${var.ssh_user}"
     kubespray_groups = "kube-node,k8s-cluster,${var.supplementary_node_groups}"
-    depends_on       = "${var.network_id}"
+    depends_on       = "${var.sriov_subnet_id}"
   }
 
   provisioner "local-exec" {
     command = "sed s/USER/${var.ssh_user}/ contrib/terraform/openstack/ansible_bastion_template.txt | sed s/BASTION_ADDRESS/${element( concat(var.bastion_fips, var.k8s_node_fips), 0)}/ > contrib/terraform/group_vars/no-floating.yml"
   }
 
+}
+
+
+# PORTS WITH FIXED IPS from subnet of sriov_id
+
+resource "openstack_networking_port_v2" "ports-k8s_node_no_floating_ip" {
+  count          = "${var.number_of_k8s_nodes_no_floating_ip}"
+  name           ="${var.cluster_name}-ports-k8s_node_no_floating_ip-${count.index+1}"
+  network_id     = "${var.sriov_id}"
+  admin_state_up = "true"
+#  security_group_ids = [ "${openstack_networking_secgroup_v2.k8s.id}" , "${openstack_networking_secgroup_v2.worker.id}" ]
+#  security_group_id = "${openstack_networking_secgroup_v2.k8s.id}"
+  fixed_ip {
+    subnet_id = "${var.sriov_subnet_id}"
+  }
+  value_specs {
+    "binding:vnic_type" = "direct"
+  }
+# SHOULD ATTACH SECURITY GROUPS HERE IN FUTURE
 }
 
 resource "openstack_compute_instance_v2" "k8s_node_no_floating_ip" {
@@ -261,6 +456,12 @@ resource "openstack_compute_instance_v2" "k8s_node_no_floating_ip" {
     name = "${var.network_name}"
   }
 
+
+#EDIT HERE
+  network {
+    port = "${element(openstack_networking_port_v2.ports-k8s_node_no_floating_ip.*.id, count.index+1)}"
+  }
+
   security_groups = ["${openstack_networking_secgroup_v2.k8s.name}",
     "${openstack_networking_secgroup_v2.worker.name}",
     "default",
@@ -269,7 +470,7 @@ resource "openstack_compute_instance_v2" "k8s_node_no_floating_ip" {
   metadata = {
     ssh_user         = "${var.ssh_user}"
     kubespray_groups = "kube-node,k8s-cluster,no-floating,${var.supplementary_node_groups}"
-    depends_on       = "${var.network_id}"
+    depends_on       = "${var.sriov_subnet_id}"
   }
 
 }
@@ -299,8 +500,27 @@ resource "openstack_blockstorage_volume_v2" "glusterfs_volume" {
   size        = "${var.gfs_volume_size_in_gb}"
 }
 
+
+# PORTS WITH FIXED IPS from subnet of sriov_id
+
+resource "openstack_networking_port_v2" "ports-glusterfs_node_no_floating_ip" {
+  count          = "${var.number_of_gfs_nodes_no_floating_ip}"
+  name           ="${var.cluster_name}-ports-glusterfs_node_no_floating_ip-${count.index+1}"
+  network_id     = "${var.sriov_id}"
+  admin_state_up = "true"
+#  security_group_ids = [ "${openstack_networking_secgroup_v2.k8s.id}" , "${openstack_networking_secgroup_v2.worker.id}" ]
+#  security_group_id = "${openstack_networking_secgroup_v2.k8s.id}"
+  fixed_ip {
+    subnet_id = "${var.sriov_subnet_id}"
+  }
+  value_specs {
+    "binding:vnic_type" = "direct"
+  }
+# SHOULD ATTACH SECURITY GROUPS HERE IN FUTURE
+}
+
 resource "openstack_compute_instance_v2" "glusterfs_node_no_floating_ip" {
-  name       = "${var.cluster_name}-gfs-node-nf-${count.index+1}"
+  name       = "${var.cluster_name}-gfs-node-nf-${count.index}"
   count      = "${var.number_of_gfs_nodes_no_floating_ip}"
   availability_zone = "${element(var.az_list, count.index)}"
   image_name = "${var.image_gfs}"
@@ -311,6 +531,11 @@ resource "openstack_compute_instance_v2" "glusterfs_node_no_floating_ip" {
     name = "${var.network_name}"
   }
 
+#EDIT HERE
+  network {
+port = "${element(openstack_networking_port_v2.ports-glusterfs_node_no_floating_ip.*.id, count.index+1)}"
+  }
+
   security_groups = ["${openstack_networking_secgroup_v2.k8s.name}",
     "default",
   ]
@@ -318,7 +543,7 @@ resource "openstack_compute_instance_v2" "glusterfs_node_no_floating_ip" {
   metadata = {
     ssh_user         = "${var.ssh_user_gfs}"
     kubespray_groups = "gfs-cluster,network-storage,no-floating"
-    depends_on       = "${var.network_id}"
+    depends_on       = "${var.sriov_subnet_id}"
   }
 
 }

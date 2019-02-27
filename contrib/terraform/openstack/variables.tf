@@ -139,3 +139,7 @@ variable "bastion_allowed_remote_ips" {
   type = "list"
   default = ["0.0.0.0/0"]
 }
+
+variable "number_of_ports" {
+  default = 10
+}

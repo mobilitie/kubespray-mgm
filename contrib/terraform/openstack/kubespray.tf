@@ -6,6 +6,7 @@ module "network" {
   subnet_cidr     = "${var.subnet_cidr}"
   cluster_name    = "${var.cluster_name}"
   dns_nameservers = "${var.dns_nameservers}"
+
 }
 
 module "ips" {
@@ -54,7 +55,10 @@ module "compute" {
   supplementary_master_groups                  = "${var.supplementary_master_groups}"
   supplementary_node_groups                    = "${var.supplementary_node_groups}"
 
-  network_id = "${module.network.router_id}"
+  network_id                                   = "${module.network.router_id}"
+  sriov_id                                     = "${module.network.sriov_id}"
+  sriov_subnet_id                              = "${module.network.sriov_subnet_id}"
+  number_of_ports                         = "${var.number_of_ports}"
 }
 
 output "private_subnet_id" {

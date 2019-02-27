@@ -71,3 +71,14 @@ variable "supplementary_master_groups" {
 variable "supplementary_node_groups" {
   default = ""
 }
+
+variable "sriov_id" {
+  default = ""
+}
+
+
+variable "sriov_subnet_id" {
+  default = ""
+}
+
+variable "number_of_ports" {}

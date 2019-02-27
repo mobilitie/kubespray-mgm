@@ -9,3 +9,6 @@ variable "dns_nameservers" {
 }
 
 variable "subnet_cidr" {}
+
+
+
