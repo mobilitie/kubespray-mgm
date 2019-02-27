@@ -38,11 +38,19 @@ image_gfs = "ubuntu1804"
 ssh_user_gfs = "ubuntu"
 flavor_gfs_node = "7"
 
-# networking
+
+
+
+
+
+
+# Router
+#UID OF Public network already existing
+external_net = "2bd75c3b-c737-4cad-8bf9-4e58c9ead742"
+#Above one is public net
+
 # networking
 network_name = "kube-network-test"
-external_net = "cb5f56c3-867f-4c97-a586-1d6b9d5378ab"
-#Above one is public net
 subnet_cidr = "162.10.10.0/24"
 floatingip_pool = "public"
 bastion_allowed_remote_ips = ["0.0.0.0/0"]
